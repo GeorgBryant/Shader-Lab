@@ -13,15 +13,27 @@ export default function ShaderLab() {
     DEFAULT_SETTINGS
   );
 
+  const [universeVersion, setUniverseVersion] =
+    useState(0);
+
   function resetSettings() {
     setSettings({ ...DEFAULT_SETTINGS });
+  }
+
+  function randomizeUniverse() {
+    setUniverseVersion(
+      (current) => current + 1
+    );
   }
 
   return (
     <main style={styles.layout}>
       <div style={styles.preview}>
         <Canvas camera={{ position: [0, 0, 3] }}>
-          <GalaxyShader settings={settings} />
+          <GalaxyShader
+            settings={settings}
+            universeVersion={universeVersion}
+          />
 
           <OrbitControls
             enableDamping
@@ -37,6 +49,7 @@ export default function ShaderLab() {
         settings={settings}
         setSettings={setSettings}
         resetSettings={resetSettings}
+        randomizeUniverse={randomizeUniverse}
       />
     </main>
   );

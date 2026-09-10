@@ -16,6 +16,7 @@ export default function ControlPanel({
   settings,
   setSettings,
   resetSettings,
+  randomizeUniverse,
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -199,6 +200,16 @@ export default function ControlPanel({
                 {groupParameters.map(
                   renderParameter
                 )}
+
+{group.name === "Structure" && (
+  <button
+    type="button"
+    style={styles.button}
+    onClick={randomizeUniverse}
+  >
+    Randomise universe
+  </button>
+)}
 
                 {group.name === "Animation" && (
                   <button

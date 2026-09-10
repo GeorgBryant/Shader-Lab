@@ -52,6 +52,18 @@ export const fragmentShader = `
         uniform float smallStarBrightness;
         uniform float smallStarTwinkle;
 
+        const int MAX_GALAXIES = 5;
+
+uniform int galaxyCount;
+
+uniform vec2 galaxyOffsets[MAX_GALAXIES];
+uniform float galaxyScales[MAX_GALAXIES];
+uniform float galaxyRotations[MAX_GALAXIES];
+uniform float galaxySeeds[MAX_GALAXIES];
+uniform vec2 galaxyInteractionDirections[MAX_GALAXIES];
+uniform float galaxyInteractionStrengths[MAX_GALAXIES];
+uniform float galaxyColorBiases[MAX_GALAXIES];
+
         varying vec2 vUv;
 
         const vec2 WARP_OFFSET = vec2(5.2, 1.3);
@@ -181,11 +193,25 @@ export const fragmentShader = `
           float hero;
         };
 
+        struct GalaxySettings {
+  vec2 proceduralOffset;
+  float armCount;
+  float spiralTightness;
+  float colorBias;
+  float coreRadius;
+  float colorVariation;
+
+  float armSharpness;
+  float brightness;
+};
+
         float createSpiral(
-          float distanceFromCentre,
-          float angle,
-          float localSpiralTightness
-        ) {
+  float distanceFromCentre,
+  float angle,
+  float localSpiralTightness,
+  float localArmCount,
+  float localArmSharpness
+) {
           float safeDistance = max(distanceFromCentre, 0.003);
 
           float innerInfluence =
@@ -206,16 +232,25 @@ export const fragmentShader = `
 
           float spiral =
             sin(
-              angle * armCount +
+              angle * localArmCount +
               radialPhase -
               time * rotationSpeed
             );
 
           spiral = spiral * 0.5 + 0.5;
 
-          float localArmSharpness = mix(armSharpness, 0.55, innerInfluence);
+float finalArmSharpness =
+  mix(
+    localArmSharpness,
+    0.55,
+    innerInfluence
+  );
 
-          spiral = pow(spiral, localArmSharpness);
+spiral =
+  pow(
+    spiral,
+    finalArmSharpness
+  );
 
           return spiral;
         }
@@ -233,13 +268,29 @@ export const fragmentShader = `
           return pow(halo, haloPower);
         }
 
-        float createCore(float distanceFromCentre) {
-          float core = 1.0 - smoothstep(0.0, coreRadius, distanceFromCentre);
-          return pow(core, coreSharpness);
-        }
+        float createCore(
+  float distanceFromCentre,
+  float coreRadius
+) {
+  float core =
+    1.0 -
+    smoothstep(
+      0.0,
+      coreRadius,
+      distanceFromCentre
+    );
 
-        float createNucleus(float distanceFromCentre) {
-          float nucleusRadius = coreRadius * 0.42;
+  return pow(
+    core,
+    coreSharpness
+  );
+}
+        float createNucleus(
+  float distanceFromCentre,
+  float coreRadius
+) {
+  float nucleusRadius =
+    coreRadius * 0.42;
 
           float nucleus =
             1.0 -
@@ -260,6 +311,11 @@ export const fragmentShader = `
         ) {
           vec2 localPosition = position - offset;
 
+          localPosition.x -=
+  floor(
+    localPosition.x + 0.5
+  );
+
           float sine = sin(rotation);
           float cosine = cos(rotation);
 
@@ -271,15 +327,140 @@ export const fragmentShader = `
           return localPosition;
         }
 
+        vec2 applyTidalDistortion(
+  vec2 galaxyPosition,
+  vec2 interactionDirection,
+  float interactionStrength,
+  float rotation
+) {
+  if (interactionStrength <= 0.0) {
+    return galaxyPosition;
+  }
+
+  float sine =
+    sin(rotation);
+
+  float cosine =
+    cos(rotation);
+
+  mat2 rotationMatrix =
+    mat2(
+      cosine, -sine,
+      sine, cosine
+    );
+
+  vec2 localDirection =
+    normalize(
+      rotationMatrix *
+      interactionDirection
+    );
+
+  float distanceFromCentre =
+    length(galaxyPosition);
+
+  float tidalFalloff =
+    1.0 -
+    smoothstep(
+      0.0,
+      galaxyRadius * 1.2,
+      distanceFromCentre
+    );
+
+  float alongAxis =
+    dot(
+      galaxyPosition,
+      localDirection
+    );
+
+  float tidalAmount =
+    interactionStrength *
+    tidalFalloff *
+    0.28;
+
+  galaxyPosition -=
+    localDirection *
+    alongAxis *
+    tidalAmount;
+
+  return galaxyPosition;
+}
+
+        GalaxySettings createGalaxySettings(
+  float seed
+) {
+  GalaxySettings settings;
+
+settings.colorVariation =
+  mix(
+    -0.14,
+    0.14,
+    random(vec2(seed, 9.0))
+  );
+
+  settings.proceduralOffset =
+    vec2(
+      random(vec2(seed, 1.0)),
+      random(vec2(seed, 2.0))
+    ) * 20.0;
+
+  settings.armCount =
+    floor(
+      mix(
+        2.0,
+        5.0,
+        random(vec2(seed, 3.0))
+      )
+    );
+
+  settings.spiralTightness =
+    mix(
+      spiralTightness * 0.75,
+      spiralTightness * 1.25,
+      random(vec2(seed, 4.0))
+    );
+
+  settings.colorBias =
+    mix(
+      -0.18,
+      0.18,
+      random(vec2(seed, 5.0))
+    );
+
+  settings.coreRadius =
+    coreRadius *
+    mix(
+      0.78,
+      1.22,
+      random(vec2(seed, 6.0))
+    );
+
+settings.armSharpness =
+  mix(
+    armSharpness * 0.75,
+    armSharpness * 1.25,
+    random(vec2(seed, 7.0))
+  );
+
+settings.brightness =
+  mix(
+    0.82,
+    1.18,
+    random(vec2(seed, 8.0))
+  );
+
+  return settings;
+}
+
         GalaxyStars createGalaxyStars(
-          vec2 warpedPosition,
-          vec2 galaxyPosition
-        ) {
+  vec2 warpedPosition,
+  vec2 galaxyPosition,
+  vec2 proceduralOffset
+) {
           GalaxyStars stars;
 
           stars.fine =
             createStars(
-              warpedPosition + GALAXY_FINE_STAR_OFFSET,
+              warpedPosition + GALAXY_FINE_STAR_OFFSET + proceduralOffset,
               220.0,
               0.72,
               0.12,
@@ -288,7 +469,7 @@ export const fragmentShader = `
 
           stars.medium =
             createStars(
-              warpedPosition + GALAXY_MEDIUM_STAR_OFFSET,
+              warpedPosition + GALAXY_MEDIUM_STAR_OFFSET + proceduralOffset,
               140.0,
               0.82,
               0.16,
@@ -317,7 +498,7 @@ export const fragmentShader = `
 
           stars.hero =
             createStars(
-              galaxyPosition + HERO_STAR_OFFSET,
+              galaxyPosition + HERO_STAR_OFFSET + proceduralOffset,
               75.0,
               clamp(largeStarDensity + 0.04, 0.0, 1.0),
               largeStarSize,
@@ -327,28 +508,41 @@ export const fragmentShader = `
           return stars;
         }
 
-        vec2 warpGalaxyPosition(vec2 galaxyPosition) {
-          vec2 warp =
-            vec2(
-              fbm(galaxyPosition * warpScale + time * warpSpeed),
-              fbm(galaxyPosition * warpScale + WARP_OFFSET + time * warpSpeed)
-            );
+       vec2 warpGalaxyPosition(
+  vec2 galaxyPosition,
+  vec2 proceduralOffset
+) {
+  vec2 warp =
+    vec2(
+      fbm(
+        galaxyPosition * warpScale +
+        proceduralOffset +
+        time * warpSpeed
+      ),
+      fbm(
+        galaxyPosition * warpScale +
+        WARP_OFFSET +
+        proceduralOffset +
+        time * warpSpeed
+      )
+    );
 
-          warp = warp * 2.0 - 1.0;
+  warp = warp * 2.0 - 1.0;
 
-          return galaxyPosition + warp * warpStrength;
-        }
+  return galaxyPosition + warp * warpStrength;
+}
 
         float createDustLanes(
           vec2 warpedPosition,
           float radialMask,
           float centreInfluence,
-          float spiral
+          float spiral,
+          vec2 proceduralOffset
         ) {
           vec2 dustWarp =
             vec2(
-              fbm(warpedPosition * dustScale * 0.18 + DUST_OFFSET),
-              fbm(warpedPosition * dustScale * 0.18 + DUST_OFFSET + vec2(4.6, -8.3))
+              fbm(warpedPosition * dustScale * 0.18 + DUST_OFFSET + proceduralOffset),
+              fbm(warpedPosition * dustScale * 0.18 + DUST_OFFSET + proceduralOffset + vec2(4.6, -8.3))
             );
 
           dustWarp = dustWarp * 2.0 - 1.0;
@@ -356,7 +550,7 @@ export const fragmentShader = `
           vec2 dustPosition = warpedPosition + dustWarp * 0.035;
 
           float dustNoise =
-            fbm(dustPosition * dustScale * 0.48 + DUST_OFFSET);
+            fbm(dustPosition * dustScale * 0.48 + DUST_OFFSET + proceduralOffset);
 
           float dustLanes =
             smoothstep(dustLow - 0.08, dustHigh + 0.08, dustNoise);
@@ -375,12 +569,13 @@ export const fragmentShader = `
         float createNebula(
           vec2 warpedPosition,
           float radialMask,
-          float dustLanes
+          float dustLanes,
+          vec2 proceduralOffset
         ) {
           float nebulaNoise =
             fbm(
               warpedPosition * nebulaScale +
-              NEBULA_OFFSET +
+              NEBULA_OFFSET + proceduralOffset +
               time * nebulaSpeed
             );
 
@@ -393,7 +588,13 @@ export const fragmentShader = `
           return nebula;
         }
 
-        GalaxyShape createGalaxyShape(vec2 warpedPosition) {
+GalaxyShape createGalaxyShape(
+  vec2 warpedPosition,
+  float localArmCount,
+  float localSpiralTightness,
+  float coreRadius,
+  float localArmSharpness
+) {
           GalaxyShape shape;
 
           vec2 bulgePosition = warpedPosition;
@@ -406,50 +607,94 @@ export const fragmentShader = `
           shape.centreInfluence =
             1.0 - smoothstep(0.0, galaxyRadius, shape.distanceFromCentre);
 
-          float localSpiralTightness =
-            spiralTightness + shape.centreInfluence * 8.0;
+          float tightenedSpiral =
+  localSpiralTightness +
+  shape.centreInfluence * 8.0;
 
-          shape.spiral =
-            createSpiral(
-              shape.distanceFromCentre,
-              shape.angle,
-              localSpiralTightness
-            );
+shape.spiral =
+  createSpiral(
+    shape.distanceFromCentre,
+    shape.angle,
+    tightenedSpiral,
+    localArmCount,
+    localArmSharpness
+  );
 
           shape.radialMask = createRadialMask(shape.distanceFromCentre);
 
           float bulgeSpiralStructure = mix(0.75, 1.0, shape.spiral);
 
-          shape.core = createCore(shape.bulgeDistance) * bulgeSpiralStructure;
+          shape.core =
+  createCore(
+    shape.bulgeDistance,
+    coreRadius
+  ) *
+  bulgeSpiralStructure;
 
-          shape.nucleus = createNucleus(shape.bulgeDistance);
+shape.nucleus =
+  createNucleus(
+    shape.bulgeDistance,
+    coreRadius
+  );
 
           shape.halo = createHalo(shape.distanceFromCentre);
 
           return shape;
         }
 
-        vec3 renderGalaxy(
-          vec2 position,
-          vec2 offset,
-          float scale,
-          float rotation
-        ) {
-          vec2 galaxyPosition =
-            transformGalaxyPosition(position, offset, scale, rotation);
+vec3 renderGalaxy(
+  vec2 position,
+  vec2 offset,
+  float scale,
+  float rotation,
+  float seed,
+  vec2 interactionDirection,
+  float interactionStrength,
+  float universeColorBias
+) {
+  vec2 galaxyPosition =
+    transformGalaxyPosition(
+      position,
+      offset,
+      scale,
+      rotation
+    );
+
+    galaxyPosition =
+  applyTidalDistortion(
+    galaxyPosition,
+    interactionDirection,
+    interactionStrength,
+    rotation
+  );
+
+  GalaxySettings settings =
+    createGalaxySettings(
+      seed
+    );
 
           // --------------------------------
           // DOMAIN WARP
           // --------------------------------
 
-          vec2 warpedPosition = warpGalaxyPosition(galaxyPosition);
+          vec2 warpedPosition =
+  warpGalaxyPosition(
+    galaxyPosition,
+    settings.proceduralOffset
+  );
 
           // --------------------------------
           // GALAXY SHAPE
           // --------------------------------
 
-          GalaxyShape shape = createGalaxyShape(warpedPosition);
-
+          GalaxyShape shape =
+  createGalaxyShape(
+    warpedPosition,
+    settings.armCount,
+    settings.spiralTightness,
+    settings.coreRadius,
+    settings.armSharpness
+  );
           // --------------------------------
           // ARM NOISE
           // --------------------------------
@@ -468,7 +713,8 @@ export const fragmentShader = `
               warpedPosition,
               shape.radialMask,
               shape.centreInfluence,
-              shape.spiral
+              shape.spiral,
+              settings.proceduralOffset
             );
 
           // --------------------------------
@@ -476,13 +722,18 @@ export const fragmentShader = `
           // --------------------------------
 
           float nebula =
-            createNebula(warpedPosition, shape.radialMask, dustLanes);
+            createNebula(warpedPosition, shape.radialMask, dustLanes, settings.proceduralOffset);
 
           // --------------------------------
           // STARS
           // --------------------------------
 
-          GalaxyStars stars = createGalaxyStars(warpedPosition, galaxyPosition);
+          GalaxyStars stars =
+  createGalaxyStars(
+    warpedPosition,
+    galaxyPosition,
+    settings.proceduralOffset
+  );
 
           // --------------------------------
           // GALAXY ARMS
@@ -535,6 +786,26 @@ export const fragmentShader = `
           stars.fine *= galaxyStarMask;
           stars.medium *= galaxyStarMask;
 
+vec3 localGalaxyColor =
+  colorB;
+
+localGalaxyColor.r =
+  clamp(
+    localGalaxyColor.r +
+    universeColorBias,
+    0.0,
+    1.0
+  );
+
+localGalaxyColor.b =
+  clamp(
+    localGalaxyColor.b -
+    universeColorBias,
+    0.0,
+    1.0
+  );
+
+
           // --------------------------------
           // COLOR LAYERS
           // --------------------------------
@@ -542,20 +813,45 @@ export const fragmentShader = `
           float galaxyColorNoise =
             noise(warpedPosition * 90.0 + GALAXY_COLOR_OFFSET);
 
-          vec3 galaxyStarColor =
-            mix(
-              coolStarColor,
-              warmStarColor,
-              smoothstep(0.35, 0.75, galaxyColorNoise)
-            );
+          float starTemperature =
+  clamp(
+    smoothstep(
+      0.35,
+      0.75,
+      galaxyColorNoise
+    ) +
+    settings.colorBias,
+    0.0,
+    1.0
+  );
 
-          vec3 haloLayer = colorB * shape.halo * haloBrightness * 0.75;
+vec3 galaxyStarColor =
+  mix(
+    coolStarColor,
+    warmStarColor,
+    starTemperature
+  );
 
-          vec3 armColor = colorB * (arms + innerArmConnection * 0.35);
+vec3 haloLayer =
+  localGalaxyColor *
+  shape.halo *
+  haloBrightness *
+  0.75;
+
+          vec3 armColor =
+  localGalaxyColor *
+  (
+    arms +
+    innerArmConnection * 0.35
+  );
 
           vec3 nebulaLayer = nebulaColor * nebula * 0.65;
 
-          vec3 coreColor = colorB * shape.core * coreBrightness * 0.12;
+          vec3 coreColor =
+  localGalaxyColor *
+  shape.core *
+  coreBrightness *
+  0.12;
 
           vec3 galaxyStarLayer =
             galaxyStarColor * (stars.fine + stars.medium) * 1.4;
@@ -603,9 +899,27 @@ export const fragmentShader = `
 
           vec3 heroStarLayer = galaxyStarColor * stars.hero * 3.0;
 
-          vec3 bulgeColor = mix(coolStarColor, warmStarColor, 0.72);
+          vec3 bulgeColor =
+  mix(
+    coolStarColor,
+    warmStarColor,
+    clamp(
+      0.72 + settings.colorBias,
+      0.0,
+      1.0
+    )
+  );
 
-          vec3 nucleusOuterColor = mix(coolStarColor, warmStarColor, 0.82);
+          vec3 nucleusOuterColor =
+  mix(
+    coolStarColor,
+    warmStarColor,
+    clamp(
+      0.82 + settings.colorBias,
+      0.0,
+      1.0
+    )
+  );
 
           vec3 nucleusInnerColor = mix(warmStarColor, vec3(1.0), 0.58);
 
@@ -642,6 +956,8 @@ export const fragmentShader = `
             galaxyStarLayer +
             coreStarLayer +
             heroStarLayer;
+            galaxyLayer *= 
+              settings.brightness;
 
           return galaxyLayer;
         }
@@ -673,7 +989,25 @@ export const fragmentShader = `
           // GALAXIES
           // --------------------------------
 
-          finalColor += renderGalaxy(position, vec2(0.0), 1.0, 0.0);
+for (int i = 0; i < MAX_GALAXIES; i++) {
+  if (i >= galaxyCount) {
+    break;
+  }
+
+finalColor +=
+  renderGalaxy(
+    position,
+    galaxyOffsets[i],
+    galaxyScales[i],
+    galaxyRotations[i],
+    galaxySeeds[i],
+    galaxyInteractionDirections[i],
+    galaxyInteractionStrengths[i],
+    galaxyColorBiases[i]
+  );
+}
+
+
 
           gl_FragColor = vec4(finalColor, 1.0);
         }

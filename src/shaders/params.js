@@ -20,6 +20,7 @@
 
 export const PARAMS = [
   // Structure
+  { key: "galaxyCount", label: "Galaxy count", group: "Structure", default: 2, min: 1, max: 5, step: 1 },
   { key: "armCount", label: "Arm count", group: "Structure", default: 3, min: 1, max: 12, step: 1 },
   { key: "spiralTightness", label: "Spiral tightness", group: "Structure", default: 14, min: 0, max: 60, step: 0.5 },
   { key: "armSharpness", label: "Arm sharpness", group: "Structure", default: 8, min: 1.5, max: 20, step: 0.5 },
@@ -165,3 +166,4 @@ export const DEFAULT_SETTINGS = {
   ...Object.fromEntries(PARAMS.map((param) => [param.key, param.default])),
   paused: false,
 };
+
