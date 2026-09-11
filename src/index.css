@@ -19,3 +19,141 @@ canvas {
   width: 100%;
   height: 100%;
 }
+
+
+.shader-slider {
+  width: 100%;
+  height: 18px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Track */
+.shader-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.shader-slider::-moz-range-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+/* Thumb */
+.shader-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+
+  width: 12px;
+  height: 12px;
+
+  margin-top: -4.5px;
+
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.06);
+
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.shader-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+
+  width: 6px;
+  height: 16px;
+
+  margin-top: -6.5px;
+
+  border-radius: 1px;
+  border: none;
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.06);
+
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* Hover */
+.shader-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.1);
+}
+
+.shader-slider:hover::-moz-range-thumb {
+  transform: scale(1.15);
+
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.1);
+}
+
+
+.randomise-button {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  margin-bottom: 4px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  color: rgba(255, 255, 255, 0.82);
+  background: #17171f;
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  cursor: pointer;
+
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.randomise-button:hover {
+  color: #ffffff;
+  background: #20202a;
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.randomise-button:active {
+  background: #292934;
+}
+
+.randomise-icon {
+  font-size: 17px;
+  font-weight: 400;
+  opacity: 0.65;
+
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.randomise-button:hover .randomise-icon {
+  transform: translateX(2px);
+  opacity: 1;
+}
